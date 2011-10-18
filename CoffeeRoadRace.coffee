@@ -26,6 +26,10 @@ jQuery ($) ->
             @speed = 5
             @texOffset = 100
 
+            @colortheme = 
+                true: ["#00a030", "#f0f0f0", "#888888", "#f0f0f0"],
+                false: ["#008040", "#f01060", "#666666"]
+
             @clearCanvas()
 
         clearCanvas: ->
@@ -41,24 +45,24 @@ jQuery ($) ->
                 half_width += @widthStep
 
         drawRoadLine: (texture, x, y, scaleX = 1.0, h = 10) ->
-            if texture
-                colors = ["#00a030", "#f0f0f0", "#888888"]
-            else
-                colors = ["#008040", "#f01060", "#666666"]
-
-            @ctx.fillStyle = colors[0]
+            @ctx.fillStyle = @colortheme[texture][0]
             @ctx.fillRect 0, y, @width, h
 
             side = @halfWidth / 2
             side_width = 20
             side *= scaleX
             side_width *= scaleX
-            @ctx.fillStyle = colors[1]
+            @ctx.fillStyle = @colortheme[texture][1]
             @ctx.fillRect @halfWidth - side - side_width, y, side_width, h
             @ctx.fillRect @halfWidth + side, y, side_width, h
 
-            @ctx.fillStyle = colors[2]
+            @ctx.fillStyle = @colortheme[texture][2]
             @ctx.fillRect @halfWidth - side, y, side * 2, h
+
+            if texture
+                @ctx.fillStyle = @colortheme[texture][3]
+                @ctx.fillRect @halfWidth - side_width/2, y, side_width, h
+
 
         race: ->
             @texOffset += @speed
