@@ -83,6 +83,7 @@ jQuery ($) ->
             half_width = @halfWidth - (@widthStep * @roadLines)
             j = 0
             for i in [0...@roadLines]
+                # TODO Implement a scanline algorithm here!!
                 j = @roadLines - 1 - i
                 road_texture = (@zMap[j] + @texOffset) % 100 > 50
                 @drawRoadLine road_texture, rrx[j], rry[j], half_width / 60 - 1.2
