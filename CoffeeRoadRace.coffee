@@ -1,18 +1,43 @@
 jQuery ($) ->
 
     class CoffeeRoadRace
-        constructor: (@id) ->
-            @roadCanvas = document.getElementById @id
-            @width = @roadCanvas.width
+
+        constructor: (@canvasId) ->
+            @canvas = document.getElementById @canvasId
+            @ctx = @canvas.getContext "2d"
+
+            @width = @canvas.width
             @halfWidth = @width/2
-            @height = @roadCanvas.height
-            @ctx = @roadCanvas.getContext "2d"
+            @height = @canvas.height
 
-            @roadLines = 155  # Depth of the visible road
+            # Depth of the visible road
+            @roadLines = 155
             @widthStep = 1
-            @noScaleLine = 8  # Line of the player's car
+            # Line of the player's car
+            @noScaleLine = 8
 
-            # Populate the zMap with the depth of the road lines
+            # Animation
+            @speed = 5
+            @texOffset = 100
+            @nextStretch = "straight"
+            @pause = false
+
+            # Road Colors
+            @colortheme =
+                true: ["#00a030", "#f0f0f0", "#888888", "#f0f0f0"],
+                false: ["#008040", "#f01060", "#666666"]
+
+            # Steering
+            @ddx = 0.02  # Sharpness of the curves
+            @segmentY = @roadLines
+            # Hills, Slopes
+            @ddy = 0.01
+
+            @populateZMap()
+
+
+        # Populate the zMap with the depth of the road lines
+        populateZMap: ->
             @zMap = []
             for i in [0...@roadLines]
                 @zMap.push 1.0 / (i - @height / 2.0)
@@ -21,57 +46,52 @@ jQuery ($) ->
             for i in [0...@roadLines]
                 @zMap[i] *= playerZ
 
-            # Animation
-            @speed = 5
-            @texOffset = 100
+            console.log @zMap
 
-            # Colors
-            @colortheme =
-                true: ["#00a030", "#f0f0f0", "#888888", "#f0f0f0"],
-                false: ["#008040", "#f01060", "#666666"]
-
-            # Steering
-            @ddx = 0.02  # Sharpness of the curves
-            @segmentY = @roadLines
-            @nextStretch = "straight"
-
-            @clearCanvas()
-
-        clearCanvas: ->
-            @ctx.fillStyle = "#60a0c0"
-            @ctx.fillRect 0, 0, @width, @height
 
         drawRoad: ->
-            half_width = @halfWidth - (@widthStep * @roadLines)
+            @clearCanvas()
 
             rx = @halfWidth
-            dx = 0
+            ry = @height - 1
             rrx = []
+            rry = []
+            dx = dy = 0
             for i in [0...@roadLines]
+                rrx.push rx
+                rry.push ry
+
                 switch @nextStretch
                     when "straight"
                         if i >= @segmentY
                             dx += @ddx
+                            dy -= @ddy
                         else
                             dx -= @ddx / 64
+                            dy += @ddy
 
                     when "curved"
                         if i <= @segmentY
                             dx += @ddx
+                            dy -= @ddy
                         else
                             dx -= @ddx / 64
-                rx += dx  # XXX reverse(i) / pre-calc
-                rrx.push rx
+                            dy += @ddy
+                rx += dx
+                ry += dy - 1
 
+            half_width = @halfWidth - (@widthStep * @roadLines)
+            j = 0
             for i in [0...@roadLines]
-                y = @height - @roadLines + i
-                road_texture = (@zMap[@roadLines - 1 - i] + @texOffset) % 100 > 50
-
-                @drawRoadLine road_texture, rrx[@roadLines-1-i], y, half_width / 60 - 1.2
+                j = @roadLines - 1 - i
+                road_texture = (@zMap[j] + @texOffset) % 100 > 50
+                @drawRoadLine road_texture, rrx[j], rry[j], half_width / 60 - 1.2
                 half_width += @widthStep
 
 
-        drawRoadLine: (texture, x, y, scaleX = 1.0, h = 10) ->
+        drawRoadLine: (texture, x, y, scaleX = 1.0, h = 42) ->
+            x = (0.5 + x)|0
+            y = (0.5 + y)|0
             @ctx.fillStyle = @colortheme[texture][0]
             @ctx.fillRect 0, y, @width, h
 
@@ -79,6 +99,8 @@ jQuery ($) ->
             side_width = 20
             side *= scaleX
             side_width *= scaleX
+            side = (0.5 + side)|0
+            side_width = (0.5 + side_width)|0
 
             @ctx.fillStyle = @colortheme[texture][1]
             @ctx.fillRect x - side - side_width, y, side_width, h
@@ -89,10 +111,17 @@ jQuery ($) ->
 
             if texture
                 @ctx.fillStyle = @colortheme[texture][3]
-                @ctx.fillRect x - side_width/2, y, side_width, h
+                @ctx.fillRect (0.5 + x - side_width/2)|0, y, side_width, h
+
+
+        clearCanvas: ->
+            @ctx.fillStyle = "#60a0c0"
+            @ctx.fillRect 0, 0, @width, @height
 
 
         race: ->
+            return if @pause
+
             @texOffset += @speed
             if @texOffset >= 100
                 @texOffset -= 100
