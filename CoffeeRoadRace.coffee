@@ -88,6 +88,7 @@ jQuery ($) ->
                 road_texture = (@zMap[j] + @texOffset) % 100 > 50
                 @drawRoadLine road_texture, rrx[j], rry[j], half_width / 60 - 1.2
                 half_width += @widthStep
+            return
 
 
         drawRoadLine: (texture, x, y, scaleX = 1.0, h = 42) ->
@@ -113,11 +114,13 @@ jQuery ($) ->
             if texture
                 @ctx.fillStyle = @colortheme[texture][3]
                 @ctx.fillRect (0.5 + x - side_width/2)|0, y, side_width, h
+            return
 
 
         clearCanvas: ->
             @ctx.fillStyle = "#60a0c0"
             @ctx.fillRect 0, 0, @width, @height
+            return
 
 
         race: ->
