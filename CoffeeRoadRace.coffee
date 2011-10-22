@@ -11,10 +11,12 @@ jQuery ($) ->
             @height = @canvas.height
 
             # Depth of the visible road
-            @roadLines = 155
-            @widthStep = 1
+            @roadLines = (0.5 + @height / 2)|0  #150
+            @widthStep = (@height * 0.5) / @roadLines  # 1
+            @zFactor = 95
+            @zFactor2 = 1.2
             # Line of the player's car
-            @noScaleLine = 8
+            @noScaleLine = 16
 
             # Animation
             @speed = 5
@@ -26,12 +28,15 @@ jQuery ($) ->
             @colortheme =
                 true: ["#00a030", "#f0f0f0", "#888888", "#f0f0f0"],
                 false: ["#008040", "#f01060", "#666666"]
+            @sideWidth = 20
 
-            # Steering
-            @ddx = 0.02  # Sharpness of the curves
+            # Sharpness of the curves
+            @ddx = 0.015
+            @ddx *= @widthStep
             @segmentY = @roadLines
             # Hills, Slopes
             @ddy = 0.01
+            @ddy *= @widthStep
 
             @populateZMap()
 
@@ -40,13 +45,11 @@ jQuery ($) ->
         populateZMap: ->
             @zMap = []
             for i in [0...@roadLines]
-                @zMap.push 1.0 / (i - @height / 2.0)
+                @zMap.push 1.0 / (i*@widthStep - @height / 2.0)
 
             playerZ = 100.0 / @zMap[@noScaleLine]
             for i in [0...@roadLines]
                 @zMap[i] *= playerZ
-
-            console.log @zMap
 
 
         drawRoad: ->
@@ -65,40 +68,125 @@ jQuery ($) ->
                     when "straight"
                         if i >= @segmentY
                             dx += @ddx
-                            dy -= @ddy
+                            #dy -= @ddy
                         else
                             dx -= @ddx / 64
-                            dy += @ddy
+                            #dy += @ddy
 
                     when "curved"
                         if i <= @segmentY
                             dx += @ddx
-                            dy -= @ddy
+                            #dy -= @ddy
                         else
                             dx -= @ddx / 64
-                            dy += @ddy
+                            #dy += @ddy
                 rx += dx
                 ry += dy - 1
 
             half_width = @halfWidth - (@widthStep * @roadLines)
             j = 0
+            y = 0
+            scanlines = []
             for i in [0...@roadLines]
-                # TODO Implement a scanline algorithm here!!
                 j = @roadLines - 1 - i
                 road_texture = (@zMap[j] + @texOffset) % 100 > 50
-                @drawRoadLine road_texture, rrx[j], rry[j], half_width / 60 - 1.2
+                y = (0.5 + rry[j])|0
+                scanlines[y] = [road_texture, (0.5 + rrx[j])|0, y, half_width / @zFactor - @zFactor2, i]
                 half_width += @widthStep
+
+            h = y = y2 = 0
+            len = scanlines.length
+            while y < len
+                if scanlines[y]
+                    h = 1
+                    y2 = y + 1
+                    while y2 < len and (!scanlines[y2] or scanlines[y2][4] < scanlines[y][4])
+                        ++h
+                        ++y2
+                    if h > 1 && scanlines[y2]
+                        @drawRoadLine2 scanlines[y][0], scanlines[y][1], scanlines[y2][1], scanlines[y][2], scanlines[y2][2], scanlines[y][3], scanlines[y2][3], h
+                    else
+                        @drawRoadLine scanlines[y][0], scanlines[y][1], scanlines[y][2], scanlines[y][3], h
+                    y += h
+                else
+                    ++y
+
+            delete scanlines
             return
 
 
-        drawRoadLine: (texture, x, y, scaleX = 1.0, h = 42) ->
-            x = (0.5 + x)|0
-            y = (0.5 + y)|0
+        drawRoadLine2: (texture, x, x2, y, y2, scaleX, scaleX2, h) ->
             @ctx.fillStyle = @colortheme[texture][0]
             @ctx.fillRect 0, y, @width, h
 
             side = @halfWidth / 2
-            side_width = 20
+            side *= scaleX
+            side_width = @sideWidth
+            side_width *= scaleX
+            # convert to integer
+            side = (0.5 + side)|0
+            side_width = (0.5 + side_width)|0
+
+            side2 = @halfWidth / 2
+            side2 *= scaleX2
+            side_width2 = @sideWidth
+            side_width2 *= scaleX2
+            # convert to integer
+            side2 = (0.5 + side2)|0
+            side_width2 = (0.5 + side_width2)|0
+
+            @ctx.fillStyle = @colortheme[texture][1]
+
+            # left road side
+            @ctx.beginPath()
+            @ctx.moveTo x - side - side_width, y
+            @ctx.lineTo x - side, y
+            @ctx.lineTo x2 - side2, y2
+            @ctx.lineTo x2 - side2 - side_width2, y2
+            @ctx.closePath()
+            @ctx.fill()
+
+            # right road side
+            @ctx.beginPath()
+            @ctx.moveTo x + side, y
+            @ctx.lineTo x + side + side_width, y
+            @ctx.lineTo x2 + side2 + side_width2, y2
+            @ctx.lineTo x2 + side2, y2
+            @ctx.closePath()
+            @ctx.fill()
+
+            # road
+            @ctx.fillStyle = @colortheme[texture][2]
+            @ctx.beginPath()
+            @ctx.moveTo x - side, y
+            @ctx.lineTo x - side + side * 2, y
+            @ctx.lineTo x2 - side2 + side2 * 2, y2
+            @ctx.lineTo x2 - side2, y2
+            @ctx.closePath()
+            @ctx.fill()
+
+            # middle of the road
+            if texture
+                half_side_width = (0.5 + side_width / 2)|0
+                half_side_width2 = (0.5 + side_width2 / 2)|0
+
+                @ctx.fillStyle = @colortheme[texture][3]
+                @ctx.beginPath()
+                @ctx.moveTo x - half_side_width, y
+                @ctx.lineTo x - half_side_width + side_width, y
+                @ctx.lineTo x2 - half_side_width2 + side_width2, y2
+                @ctx.lineTo x2 - half_side_width2, y2
+                @ctx.closePath()
+                @ctx.fill()
+
+            return
+
+        drawRoadLine: (texture, x, y, scaleX, h = 1) ->
+            @ctx.fillStyle = @colortheme[texture][0]
+            @ctx.fillRect 0, y, @width, h
+
+            side = @halfWidth / 2
+            side_width = @sideWidth
             side *= scaleX
             side_width *= scaleX
             side = (0.5 + side)|0
