@@ -11,8 +11,8 @@ jQuery ($) ->
             @height = @canvas.height
 
             # Depth of the visible road
-            @roadLines = (0.5 + @height / 2)|0  #150
-            @widthStep = (@height * 0.5) / @roadLines  # 1
+            @roadLines = (0.5 + @height / 2)|0
+            @widthStep = (@height * 0.5) / @roadLines
             @zFactor = 95
             @zFactor2 = 1.2
             # Line of the player's car
@@ -45,7 +45,7 @@ jQuery ($) ->
         populateZMap: ->
             @zMap = []
             for i in [0...@roadLines]
-                @zMap.push 1.0 / (i*@widthStep - @height / 2.0)
+                @zMap.push 1.0 / (i * @widthStep - @height / 2.0)
 
             playerZ = 100.0 / @zMap[@noScaleLine]
             for i in [0...@roadLines]
@@ -53,8 +53,6 @@ jQuery ($) ->
 
 
         drawRoad: ->
-            @clearCanvas()
-
             rx = @halfWidth
             ry = @height - 1
             rrx = []
@@ -84,34 +82,35 @@ jQuery ($) ->
                 ry += dy - 1
 
             half_width = @halfWidth - (@widthStep * @roadLines)
-            j = 0
-            y = 0
-            scanlines = []
+            j = y = 0
+            scan = []
             for i in [0...@roadLines]
                 j = @roadLines - 1 - i
-                road_texture = (@zMap[j] + @texOffset) % 100 > 50
+                tex = (@zMap[j] + @texOffset) % 100 > 50
                 y = (0.5 + rry[j])|0
-                scanlines[y] = [road_texture, (0.5 + rrx[j])|0, y, half_width / @zFactor - @zFactor2, i]
+                scan[y] = [tex, (0.5 + rrx[j])|0, y, half_width / @zFactor - @zFactor2, i]
                 half_width += @widthStep
 
+            @clearCanvas()
+
             h = y = y2 = 0
-            len = scanlines.length
+            len = scan.length
             while y < len
-                if scanlines[y]
+                if scan[y]
                     h = 1
                     y2 = y + 1
-                    while y2 < len and (!scanlines[y2] or scanlines[y2][4] < scanlines[y][4])
+                    while y2 < len and (!scan[y2] or scan[y2][4] < scan[y][4])
                         ++h
                         ++y2
-                    if h > 1 && scanlines[y2]
-                        @drawRoadLine2 scanlines[y][0], scanlines[y][1], scanlines[y2][1], scanlines[y][2], scanlines[y2][2], scanlines[y][3], scanlines[y2][3], h
+                    if h > 1 && scan[y2]
+                        @drawRoadLine2 scan[y][0], scan[y][1], scan[y2][1], scan[y][2], scan[y2][2], scan[y][3], scan[y2][3], h
                     else
-                        @drawRoadLine scanlines[y][0], scanlines[y][1], scanlines[y][2], scanlines[y][3], h
+                        @drawRoadLine scan[y][0], scan[y][1], scan[y][2], scan[y][3], h
                     y += h
                 else
                     ++y
 
-            delete scanlines
+            delete scan
             return
 
 
