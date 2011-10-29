@@ -2,13 +2,12 @@ jQuery ($) ->
 
     class CoffeeRoadRace
 
-        constructor: (@canvasId) ->
-            @canvas = document.getElementById @canvasId
-            @ctx = @canvas.getContext "2d"
-
-            @width = @canvas.width
+        constructor: (@containerId) ->
+            @width = $("##{@containerId}").width()
+            @height = $("##{@containerId}").height()
             @halfWidth = @width/2
-            @height = @canvas.height
+
+            @createHtml()
 
             # Depth of the visible road
             @roadLines = (0.5 + @height / 2)|0
@@ -16,7 +15,7 @@ jQuery ($) ->
             @zFactor = 95
             @zFactor2 = 1.2
             # Line of the player's car
-            @noScaleLine = 16
+            @noScaleLine = 8
 
             # Animation
             @speed = 5
@@ -26,8 +25,11 @@ jQuery ($) ->
 
             # Road Colors
             @colortheme =
-                true: ["#00a030", "#f0f0f0", "#888888", "#f0f0f0"],
-                false: ["#008040", "#f01060", "#666666"]
+                true: ["#f2e2d8", "#989697", "#a4a2a5", "#f0f0f0"],
+                false: ["#dcccc2", "#f0f0f0", "#acaaad"]
+            #@colortheme =
+                #true: ["#00a030", "#f0f0f0", "#888888", "#f0f0f0"],
+                #false: ["#008040", "#f01060", "#666666"]
             @sideWidth = 20
 
             # Sharpness of the curves
@@ -40,6 +42,34 @@ jQuery ($) ->
 
             @populateZMap()
 
+        createHtml: ->
+            @groundCanvasId = "groundCanavas"
+            @roadCanvasId = "roadCanavas"
+
+            $container = $ "##{@containerId}"
+            $container.css "position", "relative"
+            $container.html """
+                <canvas id='#{@groundCanvasId}' width='#{@width}' height='#{@height}'></canvas>
+                <canvas id='#{@roadCanvasId}' width='#{@width}' height='#{@height}'></canvas>
+            """
+
+            @groundCanvas = $container.children("##{@groundCanvasId}").get 0
+            @roadCanvas = $container.children("##{@roadCanvasId}").get 0
+
+            $(@groundCanvas).css
+                position: "absolute",
+                top: 0,
+                left: 0
+
+            $(@roadCanvas).css
+                position: "absolute",
+                top: 0,
+                left: 0,
+                'z-index': 100
+
+            @groundCtx = @groundCanvas.getContext "2d"
+            @roadCtx = @roadCanvas.getContext "2d"
+            return
 
         # Populate the zMap with the depth of the road lines
         populateZMap: ->
@@ -50,7 +80,7 @@ jQuery ($) ->
             playerZ = 100.0 / @zMap[@noScaleLine]
             for i in [0...@roadLines]
                 @zMap[i] *= playerZ
-
+            return
 
         drawRoad: ->
             rx = @halfWidth
@@ -87,8 +117,10 @@ jQuery ($) ->
             for i in [0...@roadLines]
                 j = @roadLines - 1 - i
                 tex = (@zMap[j] + @texOffset) % 100 > 50
+                #y = (0.5 + rry[j])|0
+                #scan[y] = [tex, (0.5 + rrx[j])|0, y, half_width / @zFactor - @zFactor2, i]
                 y = (0.5 + rry[j])|0
-                scan[y] = [tex, (0.5 + rrx[j])|0, y, half_width / @zFactor - @zFactor2, i]
+                scan[(0.5 + rry[j])|0] = [tex, rrx[j], rry[j], half_width / @zFactor - @zFactor2, i]
                 half_width += @widthStep
 
             @clearCanvas()
@@ -102,6 +134,7 @@ jQuery ($) ->
                     while y2 < len and (!scan[y2] or scan[y2][4] < scan[y][4])
                         ++h
                         ++y2
+                    @drawGround scan[y][0], scan[y][2], h
                     if h > 1 && scan[y2]
                         @drawRoadLine2 scan[y][0], scan[y][1], scan[y2][1], scan[y][2], scan[y2][2], scan[y][3], scan[y2][3], h
                     else
@@ -113,102 +146,101 @@ jQuery ($) ->
             delete scan
             return
 
-
         drawRoadLine2: (texture, x, x2, y, y2, scaleX, scaleX2, h) ->
-            @ctx.fillStyle = @colortheme[texture][0]
-            @ctx.fillRect 0, y, @width, h
-
             side = @halfWidth / 2
             side *= scaleX
             side_width = @sideWidth
             side_width *= scaleX
             # convert to integer
-            side = (0.5 + side)|0
-            side_width = (0.5 + side_width)|0
+            #side = (0.5 + side)|0
+            #side_width = (0.5 + side_width)|0
 
             side2 = @halfWidth / 2
             side2 *= scaleX2
             side_width2 = @sideWidth
             side_width2 *= scaleX2
             # convert to integer
-            side2 = (0.5 + side2)|0
-            side_width2 = (0.5 + side_width2)|0
+            #side2 = (0.5 + side2)|0
+            #side_width2 = (0.5 + side_width2)|0
 
-            @ctx.fillStyle = @colortheme[texture][1]
+            @roadCtx.fillStyle = @colortheme[texture][1]
 
             # left road side
-            @ctx.beginPath()
-            @ctx.moveTo x - side - side_width, y
-            @ctx.lineTo x - side, y
-            @ctx.lineTo x2 - side2, y2
-            @ctx.lineTo x2 - side2 - side_width2, y2
-            @ctx.closePath()
-            @ctx.fill()
+            @roadCtx.beginPath()
+            @roadCtx.moveTo x - side - side_width, y
+            @roadCtx.lineTo x - side, y
+            @roadCtx.lineTo x2 - side2, y2
+            @roadCtx.lineTo x2 - side2 - side_width2, y2
+            @roadCtx.closePath()
+            @roadCtx.fill()
 
             # right road side
-            @ctx.beginPath()
-            @ctx.moveTo x + side, y
-            @ctx.lineTo x + side + side_width, y
-            @ctx.lineTo x2 + side2 + side_width2, y2
-            @ctx.lineTo x2 + side2, y2
-            @ctx.closePath()
-            @ctx.fill()
+            @roadCtx.beginPath()
+            @roadCtx.moveTo x + side, y
+            @roadCtx.lineTo x + side + side_width, y
+            @roadCtx.lineTo x2 + side2 + side_width2, y2
+            @roadCtx.lineTo x2 + side2, y2
+            @roadCtx.closePath()
+            @roadCtx.fill()
 
             # road
-            @ctx.fillStyle = @colortheme[texture][2]
-            @ctx.beginPath()
-            @ctx.moveTo x - side, y
-            @ctx.lineTo x - side + side * 2, y
-            @ctx.lineTo x2 - side2 + side2 * 2, y2
-            @ctx.lineTo x2 - side2, y2
-            @ctx.closePath()
-            @ctx.fill()
+            @roadCtx.fillStyle = @colortheme[texture][2]
+            @roadCtx.beginPath()
+            @roadCtx.moveTo x - side, y
+            @roadCtx.lineTo x - side + side * 2, y
+            @roadCtx.lineTo x2 - side2 + side2 * 2, y2
+            @roadCtx.lineTo x2 - side2, y2
+            @roadCtx.closePath()
+            @roadCtx.fill()
 
             # middle of the road
             if texture
-                half_side_width = (0.5 + side_width / 2)|0
-                half_side_width2 = (0.5 + side_width2 / 2)|0
+                #half_side_width = (0.5 + side_width / 2)|0
+                #half_side_width2 = (0.5 + side_width2 / 2)|0
+                half_side_width = side_width / 2
+                half_side_width2 = side_width2 / 2
 
-                @ctx.fillStyle = @colortheme[texture][3]
-                @ctx.beginPath()
-                @ctx.moveTo x - half_side_width, y
-                @ctx.lineTo x - half_side_width + side_width, y
-                @ctx.lineTo x2 - half_side_width2 + side_width2, y2
-                @ctx.lineTo x2 - half_side_width2, y2
-                @ctx.closePath()
-                @ctx.fill()
-
+                @roadCtx.fillStyle = @colortheme[texture][3]
+                @roadCtx.beginPath()
+                @roadCtx.moveTo x - half_side_width, y
+                @roadCtx.lineTo x - half_side_width + side_width, y
+                @roadCtx.lineTo x2 - half_side_width2 + side_width2, y2
+                @roadCtx.lineTo x2 - half_side_width2, y2
+                @roadCtx.closePath()
+                @roadCtx.fill()
             return
 
         drawRoadLine: (texture, x, y, scaleX, h = 1) ->
-            @ctx.fillStyle = @colortheme[texture][0]
-            @ctx.fillRect 0, y, @width, h
-
             side = @halfWidth / 2
             side_width = @sideWidth
             side *= scaleX
             side_width *= scaleX
-            side = (0.5 + side)|0
-            side_width = (0.5 + side_width)|0
+            #side = (0.5 + side)|0
+            #side_width = (0.5 + side_width)|0
 
-            @ctx.fillStyle = @colortheme[texture][1]
-            @ctx.fillRect x - side - side_width, y, side_width, h
-            @ctx.fillRect x + side, y, side_width, h
+            @roadCtx.fillStyle = @colortheme[texture][1]
+            @roadCtx.fillRect x - side - side_width, y, side_width, h
+            @roadCtx.fillRect x + side, y, side_width, h
 
-            @ctx.fillStyle = @colortheme[texture][2]
-            @ctx.fillRect x - side, y, side * 2, h
+            @roadCtx.fillStyle = @colortheme[texture][2]
+            @roadCtx.fillRect x - side, y, side * 2, h
 
             if texture
-                @ctx.fillStyle = @colortheme[texture][3]
-                @ctx.fillRect (0.5 + x - side_width/2)|0, y, side_width, h
+                @roadCtx.fillStyle = @colortheme[texture][3]
+                #@roadCtx.fillRect (0.5 + x - side_width/2)|0, y, side_width, h
+                @roadCtx.fillRect x - side_width/2, y, side_width, h
             return
 
+        drawGround: (texture, y, h) ->
+            @roadCtx.fillStyle = @colortheme[texture][0]
+            @roadCtx.fillRect 0, y, @width, h
+            return
 
         clearCanvas: ->
-            @ctx.fillStyle = "#60a0c0"
-            @ctx.fillRect 0, 0, @width, @height
+            @groundCtx.fillStyle = "#60a0c0"
+            @groundCtx.fillRect 0, 0, @width, @height
+            @roadCtx.clearRect 0, 0, @width, @height
             return
-
 
         race: ->
             return if @pause
@@ -226,13 +258,14 @@ jQuery ($) ->
                     @nextStretch = 'straight'
 
             @drawRoad()
+            return
 
 
     # http://active.tutsplus.com/tutorials/games/create-a-racing-game-without-a-3d-engine/
     #
     console.log("CoffeeRoadRace by spearwolf <wolfger@spearwolf.de>")
 
-    racer = window.racer = new CoffeeRoadRace "roadRaceCanvas"
+    racer = window.racer = new CoffeeRoadRace "roadRace"
 
     reqAnimFrame = window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame
     anim = ->
