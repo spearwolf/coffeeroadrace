@@ -15,7 +15,7 @@ jQuery ($) ->
             @zFactor = 95
             @zFactor2 = 1.2
             # Line of the player's car
-            @noScaleLine = 8
+            @noScaleLine = 32
 
             # Animation
             @speed = 5
@@ -41,6 +41,12 @@ jQuery ($) ->
             @ddy *= @widthStep
 
             @populateZMap()
+
+            @backgroundImage = null
+            self = this
+            img = new Image()
+            img.src = "cloudy_1280x400.png"
+            $(img).load -> self.backgroundImage = img
 
         createHtml: ->
             @groundCanvasId = "groundCanavas"
@@ -96,18 +102,18 @@ jQuery ($) ->
                     when "straight"
                         if i >= @segmentY
                             dx += @ddx
-                            #dy -= @ddy
+                            dy -= @ddy
                         else
                             dx -= @ddx / 64
-                            #dy += @ddy
+                            dy += @ddy
 
                     when "curved"
                         if i <= @segmentY
                             dx += @ddx
-                            #dy -= @ddy
+                            dy -= @ddy
                         else
                             dx -= @ddx / 64
-                            #dy += @ddy
+                            dy += @ddy
                 rx += dx
                 ry += dy - 1
 
@@ -117,18 +123,18 @@ jQuery ($) ->
             for i in [0...@roadLines]
                 j = @roadLines - 1 - i
                 tex = (@zMap[j] + @texOffset) % 100 > 50
-                #y = (0.5 + rry[j])|0
-                #scan[y] = [tex, (0.5 + rrx[j])|0, y, half_width / @zFactor - @zFactor2, i]
-                y = (0.5 + rry[j])|0
-                scan[(0.5 + rry[j])|0] = [tex, rrx[j], rry[j], half_width / @zFactor - @zFactor2, i]
+                y = (rry[j])|0
+                scan[y] = [tex, rrx[j], y, half_width / @zFactor - @zFactor2, i]
                 half_width += @widthStep
-
-            @clearCanvas()
 
             h = y = y2 = 0
             len = scan.length
+            @backgroundPosition = null
             while y < len
                 if scan[y]
+                    unless @backgroundPosition
+                        @backgroundPosition = [scan[y][1], scan[y][2]]
+                        @clearCanvas()
                     h = 1
                     y2 = y + 1
                     while y2 < len and (!scan[y2] or scan[y2][4] < scan[y][4])
@@ -151,17 +157,11 @@ jQuery ($) ->
             side *= scaleX
             side_width = @sideWidth
             side_width *= scaleX
-            # convert to integer
-            #side = (0.5 + side)|0
-            #side_width = (0.5 + side_width)|0
 
             side2 = @halfWidth / 2
             side2 *= scaleX2
             side_width2 = @sideWidth
             side_width2 *= scaleX2
-            # convert to integer
-            #side2 = (0.5 + side2)|0
-            #side_width2 = (0.5 + side_width2)|0
 
             @roadCtx.fillStyle = @colortheme[texture][1]
 
@@ -237,8 +237,20 @@ jQuery ($) ->
             return
 
         clearCanvas: ->
-            @groundCtx.fillStyle = "#60a0c0"
-            @groundCtx.fillRect 0, 0, @width, @height
+            if @backgroundImage and @backgroundPosition
+                @groundCtx.drawImage @backgroundImage,
+                    @width - @backgroundPosition[0],
+                    @height - @backgroundPosition[1],
+                    @width,
+                    @backgroundPosition[1],
+                    0,
+                    0,
+                    @width,
+                    @backgroundPosition[1]
+            else
+                @groundCtx.fillStyle = "#60a0c0"
+                @groundCtx.fillRect 0, 0, @width, @height
+
             @roadCtx.clearRect 0, 0, @width, @height
             return
 
