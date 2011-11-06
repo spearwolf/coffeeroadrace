@@ -15,7 +15,7 @@ jQuery ($) ->
             @zFactor = 95
             @zFactor2 = 1.2
             # Line of the player's car
-            @noScaleLine = 32
+            @noScaleLine = 8
 
             # Animation
             @speed = 5
@@ -81,7 +81,7 @@ jQuery ($) ->
         populateZMap: ->
             @zMap = []
             for i in [0...@roadLines]
-                @zMap.push 1.0 / (i * @widthStep - @height / 2.0)
+                @zMap.push 1.0 / ((i * @widthStep) - (@height / 1.85))
 
             playerZ = 100.0 / @zMap[@noScaleLine]
             for i in [0...@roadLines]
@@ -102,18 +102,18 @@ jQuery ($) ->
                     when "straight"
                         if i >= @segmentY
                             dx += @ddx
-                            dy -= @ddy
+                            #dy -= @ddy
                         else
                             dx -= @ddx / 64
-                            dy += @ddy
+                            #dy += @ddy
 
                     when "curved"
                         if i <= @segmentY
                             dx += @ddx
-                            dy -= @ddy
+                            #dy -= @ddy
                         else
                             dx -= @ddx / 64
-                            dy += @ddy
+                            #dy += @ddy
                 rx += dx
                 ry += dy - 1
 
