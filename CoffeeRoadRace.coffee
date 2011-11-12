@@ -152,83 +152,91 @@ jQuery ($) ->
             delete scan
             return
 
-        drawRoadLine2: (texture, x, x2, y, y2, scaleX, scaleX2, h) ->
-            side = @halfWidth / 2
-            side *= scaleX
-            side_width = @sideWidth
-            side_width *= scaleX
+        getShaderProg: (texture) ->
+            # [ /*coords:*/ [], /*width:*/ [], /*paint:*/ [[<styleIndex>, [<coordsIndex>, <widthIndex>], ..], .. ]
 
-            side2 = @halfWidth / 2
-            side2 *= scaleX2
-            side_width2 = @sideWidth
-            side_width2 *= scaleX2
+            unless @shaders
+                @shaders = {}
+                @shaders[true] = [
+                    [
+                        -(@halfWidth/2)-@sideWidth,
+                        @halfWidth/2,
+                        -@halfWidth/2,
+                        @sideWidth/2
+                    ],
+                    [
+                        @sideWidth,
+                        @halfWidth
+                    ],
+                    [
+                        [1, [0, 0], [1, 0]],
+                        [2, [2, 1]],
+                        [3, [3, 0]]
+                    ]
+                ]
+                @shaders[false] = [
+                    [
+                        -(@halfWidth/2)-@sideWidth,
+                        @halfWidth/2,
+                        -@halfWidth/2,
+                        @sideWidth/2
+                    ],
+                    [
+                        @sideWidth,
+                        @halfWidth
+                    ],
+                    [
+                        [1, [0, 0], [1, 0]],
+                        [2, [2, 1]]
+                    ]
+                ]
 
-            @roadCtx.fillStyle = @colortheme[texture][1]
-
-            # left road side
-            @roadCtx.beginPath()
-            @roadCtx.moveTo x - side - side_width, y
-            @roadCtx.lineTo x - side, y
-            @roadCtx.lineTo x2 - side2, y2
-            @roadCtx.lineTo x2 - side2 - side_width2, y2
-            @roadCtx.closePath()
-            @roadCtx.fill()
-
-            # right road side
-            @roadCtx.beginPath()
-            @roadCtx.moveTo x + side, y
-            @roadCtx.lineTo x + side + side_width, y
-            @roadCtx.lineTo x2 + side2 + side_width2, y2
-            @roadCtx.lineTo x2 + side2, y2
-            @roadCtx.closePath()
-            @roadCtx.fill()
-
-            # road
-            @roadCtx.fillStyle = @colortheme[texture][2]
-            @roadCtx.beginPath()
-            @roadCtx.moveTo x - side, y
-            @roadCtx.lineTo x - side + side * 2, y
-            @roadCtx.lineTo x2 - side2 + side2 * 2, y2
-            @roadCtx.lineTo x2 - side2, y2
-            @roadCtx.closePath()
-            @roadCtx.fill()
-
-            # middle of the road
-            if texture
-                #half_side_width = (0.5 + side_width / 2)|0
-                #half_side_width2 = (0.5 + side_width2 / 2)|0
-                half_side_width = side_width / 2
-                half_side_width2 = side_width2 / 2
-
-                @roadCtx.fillStyle = @colortheme[texture][3]
-                @roadCtx.beginPath()
-                @roadCtx.moveTo x - half_side_width, y
-                @roadCtx.lineTo x - half_side_width + side_width, y
-                @roadCtx.lineTo x2 - half_side_width2 + side_width2, y2
-                @roadCtx.lineTo x2 - half_side_width2, y2
-                @roadCtx.closePath()
-                @roadCtx.fill()
-            return
+            return @shaders[!!texture]
 
         drawRoadLine: (texture, x, y, scaleX, h = 1) ->
-            side = @halfWidth / 2
-            side_width = @sideWidth
-            side *= scaleX
-            side_width *= scaleX
-            #side = (0.5 + side)|0
-            #side_width = (0.5 + side_width)|0
+            shader = @getShaderProg texture
 
-            @roadCtx.fillStyle = @colortheme[texture][1]
-            @roadCtx.fillRect x - side - side_width, y, side_width, h
-            @roadCtx.fillRect x + side, y, side_width, h
+            coords = []
+            for c in shader[0]
+                coords.push x + c * scaleX
 
-            @roadCtx.fillStyle = @colortheme[texture][2]
-            @roadCtx.fillRect x - side, y, side * 2, h
+            widths = []
+            for w in shader[1]
+                widths.push w * scaleX
 
-            if texture
-                @roadCtx.fillStyle = @colortheme[texture][3]
-                #@roadCtx.fillRect (0.5 + x - side_width/2)|0, y, side_width, h
-                @roadCtx.fillRect x - side_width/2, y, side_width, h
+            for paint in shader[2]
+                @roadCtx.fillStyle = @colortheme[texture][paint[0]]
+                for i in [1...paint.length]
+                    @roadCtx.fillRect coords[paint[i][0]], y, widths[paint[i][1]], h
+
+            return
+
+        drawRoadLine2: (texture, x, x2, y, y2, scaleX, scaleX2, h) ->
+            shader = @getShaderProg texture
+
+            coords = []
+            coords2 = []
+            for c in shader[0]
+                coords.push x + c * scaleX
+                coords2.push x2 + c * scaleX2
+
+            widths = []
+            widths2 = []
+            for w in shader[1]
+                widths.push w * scaleX
+                widths2.push w * scaleX2
+
+            for paint in shader[2]
+                @roadCtx.fillStyle = @colortheme[texture][paint[0]]
+                for i in [1...paint.length]
+                    @roadCtx.beginPath()
+                    @roadCtx.moveTo coords[paint[i][0]], y
+                    @roadCtx.lineTo coords[paint[i][0]] + widths[paint[i][1]], y
+                    @roadCtx.lineTo coords2[paint[i][0]] + widths2[paint[i][1]], y2
+                    @roadCtx.lineTo coords2[paint[i][0]], y2
+                    @roadCtx.closePath()
+                    @roadCtx.fill()
+
             return
 
         drawGround: (texture, y, h) ->
