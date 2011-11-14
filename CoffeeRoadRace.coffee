@@ -25,11 +25,13 @@ jQuery ($) ->
 
             # Road Colors
             @colortheme =
-                true: ["#f2e2d8", "#989697", "#a4a2a5", "#f0f0f0"],
+                true: ["#f2e2d8", "#f0f0f0", "#a4a2a5"],
                 false: ["#dcccc2", "#f0f0f0", "#acaaad"]
             #@colortheme =
                 #true: ["#00a030", "#f0f0f0", "#888888", "#f0f0f0"],
                 #false: ["#008040", "#f01060", "#666666"]
+            @roadWidth = @halfWidth
+            @roadHalfWidth = @roadWidth >> 1
             @sideWidth = 20
 
             # Sharpness of the curves
@@ -102,18 +104,18 @@ jQuery ($) ->
                     when "straight"
                         if i >= @segmentY
                             dx += @ddx
-                            #dy -= @ddy
+                            dy -= @ddy
                         else
                             dx -= @ddx / 64
-                            #dy += @ddy
+                            dy += @ddy
 
                     when "curved"
                         if i <= @segmentY
                             dx += @ddx
-                            #dy -= @ddy
+                            dy -= @ddy
                         else
                             dx -= @ddx / 64
-                            #dy += @ddy
+                            dy += @ddy
                 rx += dx
                 ry += dy - 1
 
@@ -156,34 +158,36 @@ jQuery ($) ->
             # [ /*coords:*/ [], /*width:*/ [], /*paint:*/ [[<styleIndex>, [<coordsIndex>, <widthIndex>], ..], .. ]
 
             unless @shaders
+                roadThird = @roadWidth/3
+
                 @shaders = {}
                 @shaders[true] = [
                     [
-                        -(@halfWidth/2)-@sideWidth,
-                        @halfWidth/2,
-                        -@halfWidth/2,
-                        @sideWidth/2
+                        -@roadHalfWidth-@sideWidth,
+                        -(roadThird>>1),
+                        -@roadHalfWidth+(@sideWidth>>1),
+                        @roadHalfWidth-@sideWidth,
+                        roadThird>>1,
                     ],
                     [
-                        @sideWidth,
-                        @halfWidth
+                        @roadWidth+(@sideWidth<<1),
+                        @sideWidth>>1,
                     ],
                     [
-                        [1, [0, 0], [1, 0]],
-                        [2, [2, 1]],
-                        [3, [3, 0]]
+                        [2, [0, 0]],
+                        [1, [1, 1], [2, 1], [3, 1], [4, 1]]
                     ]
                 ]
                 @shaders[false] = [
                     [
-                        -(@halfWidth/2)-@sideWidth,
-                        @halfWidth/2,
-                        -@halfWidth/2,
-                        @sideWidth/2
+                        -@roadHalfWidth-@sideWidth,
+                        @roadHalfWidth,
+                        -@roadHalfWidth,
+                        -@sideWidth>>1
                     ],
                     [
                         @sideWidth,
-                        @halfWidth
+                        @roadWidth
                     ],
                     [
                         [1, [0, 0], [1, 0]],
@@ -196,13 +200,8 @@ jQuery ($) ->
         drawRoadLine: (texture, x, y, scaleX, h = 1) ->
             shader = @getShaderProg texture
 
-            coords = []
-            for c in shader[0]
-                coords.push x + c * scaleX
-
-            widths = []
-            for w in shader[1]
-                widths.push w * scaleX
+            coords = (x + c * scaleX for c in shader[0])
+            widths = (w * scaleX for w in shader[1])
 
             for paint in shader[2]
                 @roadCtx.fillStyle = @colortheme[texture][paint[0]]
@@ -287,9 +286,13 @@ jQuery ($) ->
 
     racer = window.racer = new CoffeeRoadRace "roadRace"
 
-    reqAnimFrame = window.mozRequestAnimationFrame || window.webkitRequestAnimationFrame
+    stats = new Stats()
+    $("body").append $(stats.domElement).addClass("statsJsWidget")
+
+    reqAnimFrame = window.mozRequestAnimationFrame or window.webkitRequestAnimationFrame
     anim = ->
         racer.race()
+        stats.update()
         reqAnimFrame anim
 
     anim()
