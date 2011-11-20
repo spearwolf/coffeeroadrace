@@ -119,16 +119,16 @@ jQuery ($) ->
                 rx += dx
                 ry += dy - 1
 
-            half_height = @height - (@heightStep * @roadLines)
+            distance = @height - (@heightStep * @roadLines)
             j = y = scaleX = 0
             scan = []
             for i in [0...@roadLines]
                 j = @roadLines - 1 - i
                 tex = (@zMap[j] + @texOffset) % 100 > 50
                 y = (rry[j])|0
-                scaleX = ((half_height * @zFactor3) / @zFactor) - @zFactor2
+                scaleX = ((distance * @zFactor3) / @zFactor) - @zFactor2
                 scan[y] = [tex, rrx[j], y, scaleX, i]
-                half_height += @heightStep
+                distance += @heightStep
 
             h = y = y2 = 0
             len = scan.length
@@ -268,6 +268,8 @@ jQuery ($) ->
             @texOffset += @speed
             if @texOffset >= 100
                 @texOffset -= 100
+            if @texOffset < 0
+                @texOffset += 100
 
             @segmentY -= 1
             if @segmentY < 0
@@ -287,18 +289,21 @@ jQuery ($) ->
 
     racer = window.racer = new CoffeeRoadRace "roadRace"
 
-    stats = new Stats()
-    $("body").append $(stats.domElement).addClass("statsJsWidget")
+    #stats = new Stats()
+    #$("body").append $(stats.domElement).addClass("statsJsWidget")
 
     $(window).keydown (event) ->
         if event.keyCode == 80  # 'p' -> pause
-            event.preventDefault()
             racer.pause = !racer.pause
+        if event.keyCode == 87  # 'w' -> more speed
+            racer.speed += 0.1
+        if event.keyCode == 83  # 's' -> less speed
+            racer.speed -= 0.1
 
     reqAnimFrame = window.mozRequestAnimationFrame or window.webkitRequestAnimationFrame
     anim = ->
-        stats.update()
         racer.race()
+        #stats.update()
         reqAnimFrame anim
 
     anim()
