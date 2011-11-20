@@ -11,9 +11,12 @@ jQuery ($) ->
 
             # Depth of the visible road
             @roadLines = (0.5 + @height / 2)|0
-            @widthStep = (@height * 0.5) / @roadLines
-            @zFactor = 95
-            @zFactor2 = 1.2
+            @heightStep = (@height * 0.5) / @roadLines
+
+            @zFactor = @height >> 1
+            @zFactor2 = 1.95
+            @zFactor3 = 2.0
+
             # Line of the player's car
             @noScaleLine = 8
 
@@ -36,11 +39,11 @@ jQuery ($) ->
 
             # Sharpness of the curves
             @ddx = 0.015
-            @ddx *= @widthStep
+            @ddx *= @heightStep
             @segmentY = @roadLines
             # Hills, Slopes
             @ddy = 0.01
-            @ddy *= @widthStep
+            @ddy *= @heightStep
 
             @populateZMap()
 
@@ -81,10 +84,7 @@ jQuery ($) ->
 
         # Populate the zMap with the depth of the road lines
         populateZMap: ->
-            @zMap = []
-            for i in [0...@roadLines]
-                @zMap.push 1.0 / ((i * @widthStep) - (@height / 1.85))
-
+            @zMap = (1.0 / ((i * @heightStep) - (@height / 1.85)) for i in [0...@roadLines])
             playerZ = 100.0 / @zMap[@noScaleLine]
             for i in [0...@roadLines]
                 @zMap[i] *= playerZ
@@ -100,34 +100,35 @@ jQuery ($) ->
                 rrx.push rx
                 rry.push ry
 
-                switch @nextStretch
-                    when "straight"
-                        if i >= @segmentY
-                            dx += @ddx
-                            dy -= @ddy
-                        else
-                            dx -= @ddx / 64
-                            dy += @ddy
+                #switch @nextStretch
+                    #when "straight"
+                        #if i >= @segmentY
+                            #dx += @ddx
+                            #dy -= @ddy
+                        #else
+                            #dx -= @ddx / 64
+                            #dy += @ddy
 
-                    when "curved"
-                        if i <= @segmentY
-                            dx += @ddx
-                            dy -= @ddy
-                        else
-                            dx -= @ddx / 64
-                            dy += @ddy
+                    #when "curved"
+                        #if i <= @segmentY
+                            #dx += @ddx
+                            #dy -= @ddy
+                        #else
+                            #dx -= @ddx / 64
+                            #dy += @ddy
                 rx += dx
                 ry += dy - 1
 
-            half_width = @halfWidth - (@widthStep * @roadLines)
-            j = y = 0
+            half_height = @height - (@heightStep * @roadLines)
+            j = y = scaleX = 0
             scan = []
             for i in [0...@roadLines]
                 j = @roadLines - 1 - i
                 tex = (@zMap[j] + @texOffset) % 100 > 50
                 y = (rry[j])|0
-                scan[y] = [tex, rrx[j], y, half_width / @zFactor - @zFactor2, i]
-                half_width += @widthStep
+                scaleX = ((half_height * @zFactor3) / @zFactor) - @zFactor2
+                scan[y] = [tex, rrx[j], y, scaleX, i]
+                half_height += @heightStep
 
             h = y = y2 = 0
             len = scan.length
@@ -289,10 +290,15 @@ jQuery ($) ->
     stats = new Stats()
     $("body").append $(stats.domElement).addClass("statsJsWidget")
 
+    $(window).keydown (event) ->
+        if event.keyCode == 80  # 'p' -> pause
+            event.preventDefault()
+            racer.pause = !racer.pause
+
     reqAnimFrame = window.mozRequestAnimationFrame or window.webkitRequestAnimationFrame
     anim = ->
-        racer.race()
         stats.update()
+        racer.race()
         reqAnimFrame anim
 
     anim()
