@@ -45,6 +45,8 @@ jQuery ($) ->
             @ddy = 0.01
             @ddy *= @heightStep
 
+            @xOffset = 0.0
+
             @populateZMap()
 
             @backgroundImage = null
@@ -91,7 +93,7 @@ jQuery ($) ->
             return
 
         drawRoad: ->
-            rx = @halfWidth
+            rx = @halfWidth + @xOffset
             ry = @height - 1
             rrx = []
             rry = []
@@ -293,12 +295,17 @@ jQuery ($) ->
     #$("body").append $(stats.domElement).addClass("statsJsWidget")
 
     $(window).keydown (event) ->
+        #console.log event.keyCode
         if event.keyCode == 80  # 'p' -> pause
             racer.pause = !racer.pause
         if event.keyCode == 87  # 'w' -> more speed
             racer.speed += 0.1
         if event.keyCode == 83  # 's' -> less speed
             racer.speed -= 0.1
+        if event.keyCode == 65  # 'a' -> left
+            racer.xOffset -= 5
+        if event.keyCode == 68  # 'd' -> right
+            racer.xOffset += 5
 
     reqAnimFrame = window.mozRequestAnimationFrame or window.webkitRequestAnimationFrame
     anim = ->
