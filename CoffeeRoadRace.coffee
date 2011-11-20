@@ -1,99 +1,30 @@
 jQuery ($) ->
 
-    class CoffeeRoadRace
-
-        constructor: (@containerId) ->
-            @width = $("##{@containerId}").width()
-            @height = $("##{@containerId}").height()
-            @halfWidth = @width/2
-
-            @createHtml()
-
-            # Depth of the visible road
+    class RoadModel  # {{{
+        constructor: (@width, @height) ->
             @roadLines = (0.5 + @height / 2)|0
+            @halfWidth = @width/2
             @heightStep = (@height * 0.5) / @roadLines
-
             @zFactor = @height >> 1
             @zFactor2 = 1.95
             @zFactor3 = 2.0
-
-            # Line of the player's car
             @noScaleLine = 8
-
-            # Animation
-            @speed = 5
-            @texOffset = 100
-            @nextStretch = "straight"
-            @pause = false
-
-            # Road Colors
-            @colortheme =
-                true: ["#f2e2d8", "#f0f0f0", "#a4a2a5"],
-                false: ["#dcccc2", "#f0f0f0", "#acaaad"]
-            #@colortheme =
-                #true: ["#00a030", "#f0f0f0", "#888888", "#f0f0f0"],
-                #false: ["#008040", "#f01060", "#666666"]
-            @roadWidth = @halfWidth
-            @roadHalfWidth = @roadWidth >> 1
-            @sideWidth = 20
-
-            # Sharpness of the curves
-            @ddx = 0.015
-            @ddx *= @heightStep
-            @segmentY = @roadLines
-            # Hills, Slopes
-            @ddy = 0.01
-            @ddy *= @heightStep
-
-            @xOffset = 0.0
-
             @populateZMap()
+            @ddx = 0.015 * @heightStep
+            @ddy = 0.01 * @heightStep
+            console.log "RoadModel initialized"
 
-            @backgroundImage = null
-            self = this
-            img = new Image()
-            img.src = "cloudy_1280x400.png"
-            $(img).load -> self.backgroundImage = img
-
-        createHtml: ->
-            @groundCanvasId = "groundCanavas"
-            @roadCanvasId = "roadCanavas"
-
-            $container = $ "##{@containerId}"
-            $container.css "position", "relative"
-            $container.html """
-                <canvas id='#{@groundCanvasId}' width='#{@width}' height='#{@height}'></canvas>
-                <canvas id='#{@roadCanvasId}' width='#{@width}' height='#{@height}'></canvas>
-            """
-
-            @groundCanvas = $container.children("##{@groundCanvasId}").get 0
-            @roadCanvas = $container.children("##{@roadCanvasId}").get 0
-
-            $(@groundCanvas).css
-                position: "absolute",
-                top: 0,
-                left: 0
-
-            $(@roadCanvas).css
-                position: "absolute",
-                top: 0,
-                left: 0,
-                'z-index': 100
-
-            @groundCtx = @groundCanvas.getContext "2d"
-            @roadCtx = @roadCanvas.getContext "2d"
-            return
-
-        # Populate the zMap with the depth of the road lines
-        populateZMap: ->
+        populateZMap: ->  # {{{
+            # Populate the zMap with the depth of the road lines
             @zMap = (1.0 / ((i * @heightStep) - (@height / 1.85)) for i in [0...@roadLines])
             playerZ = 100.0 / @zMap[@noScaleLine]
             for i in [0...@roadLines]
                 @zMap[i] *= playerZ
             return
+            # }}}
 
-        drawRoad: ->
-            rx = @halfWidth + @xOffset
+        updateRoad: (xOffset, texOffset) ->  # {{{
+            rx = @halfWidth + xOffset
             ry = @height - 1
             rrx = []
             rry = []
@@ -126,7 +57,7 @@ jQuery ($) ->
             scan = []
             for i in [0...@roadLines]
                 j = @roadLines - 1 - i
-                tex = (@zMap[j] + @texOffset) % 100 > 50
+                tex = (@zMap[j] + texOffset) % 100 > 50
                 y = (rry[j])|0
                 scaleX = ((distance * @zFactor3) / @zFactor) - @zFactor2
                 scan[y] = [tex, rrx[j], y, scaleX, i]
@@ -134,30 +65,113 @@ jQuery ($) ->
 
             h = y = y2 = 0
             len = scan.length
-            @backgroundPosition = null
+            backgroundPosition = null
+            renderList = []
             while y < len
                 if scan[y]
-                    unless @backgroundPosition
-                        @backgroundPosition = [scan[y][1], scan[y][2]]
-                        @clearCanvas()
+                    unless backgroundPosition
+                        backgroundPosition = [scan[y][1], scan[y][2]]
+                        renderList.push [0, backgroundPosition[0], backgroundPosition[1]]
                     h = 1
                     y2 = y + 1
                     while y2 < len and (!scan[y2] or scan[y2][4] < scan[y][4])
                         ++h
                         ++y2
-                    @drawGround scan[y][0], scan[y][2], h
+                    renderList.push [1, scan[y][0], scan[y][2], h]
                     if h > 1 && scan[y2]
-                        @drawRoadLine2 scan[y][0], scan[y][1], scan[y2][1], scan[y][2], scan[y2][2], scan[y][3], scan[y2][3], h
+                        renderList.push [3, scan[y][0], scan[y][1], scan[y2][1], scan[y][2], scan[y2][2], scan[y][3], scan[y2][3], h]
                     else
-                        @drawRoadLine scan[y][0], scan[y][1], scan[y][2], scan[y][3], h
+                        renderList.push [2, scan[y][0], scan[y][1], scan[y][2], scan[y][3], h]
                     y += h
                 else
                     ++y
 
             delete scan
-            return
+            return renderList
+            # }}}
 
-        getShaderProg: (texture) ->
+        # end of class RoadModel }}}
+
+    class CoffeeRoadRace  # {{{
+        constructor: (@containerId) ->  # {{{
+            @width = $("##{@containerId}").width()
+            @height = $("##{@containerId}").height()
+
+            @model = new RoadModel(@width, @height)
+
+            @createHtml()
+
+            @speed = 5
+            @texOffset = 100
+            @segmentY = 0
+            @xOffset = 0.0
+
+            @nextStretch = "straight"
+            @pause = false
+
+            # Road Colors & Theme
+            @colortheme =
+                true: ["#f2e2d8", "#f0f0f0", "#a4a2a5"],
+                false: ["#dcccc2", "#f0f0f0", "#acaaad"]
+            @roadWidth = @width >> 1
+            @roadHalfWidth = @roadWidth >> 1
+            @sideWidth = 20
+
+            @backgroundImage = null
+            self = this
+            img = new Image()
+            img.src = "cloudy_1280x400.png"
+            $(img).load -> self.backgroundImage = img
+            # }}}
+
+        createHtml: ->  # {{{
+            @groundCanvasId = "groundCanavas"
+            @roadCanvasId = "roadCanavas"
+
+            $container = $ "##{@containerId}"
+            $container.css "position", "relative"
+            $container.html """
+                <canvas id='#{@groundCanvasId}' width='#{@width}' height='#{@height}'></canvas>
+                <canvas id='#{@roadCanvasId}' width='#{@width}' height='#{@height}'></canvas>
+            """
+
+            @groundCanvas = $container.children("##{@groundCanvasId}").get 0
+            @roadCanvas = $container.children("##{@roadCanvasId}").get 0
+
+            $(@groundCanvas).css
+                position: "absolute",
+                top: 0,
+                left: 0
+
+            $(@roadCanvas).css
+                position: "absolute",
+                top: 0,
+                left: 0,
+                'z-index': 100
+
+            @groundCtx = @groundCanvas.getContext "2d"
+            @roadCtx = @roadCanvas.getContext "2d"
+            return
+            # }}}
+
+        drawRoad: ->  # {{{
+            renderList = @model.updateRoad(@xOffset, @texOffset)
+            for args in renderList
+                cmd = args.shift()
+                switch cmd
+                    when 0
+                        @clearCanvas args...
+                    when 1
+                        @drawGround args...
+                    when 2
+                        @drawRoadLine args...
+                    when 3
+                        @drawRoadLine2 args...
+            delete renderList
+            return
+            # }}}
+
+        getShaderProg: (texture) ->  # {{{
             # [ /*coords:*/ [], /*width:*/ [], /*paint:*/ [[<styleIndex>, [<coordsIndex>, <widthIndex>], ..], .. ]
 
             unless @shaders
@@ -199,8 +213,9 @@ jQuery ($) ->
                 ]
 
             return @shaders[!!texture]
+            # }}}
 
-        drawRoadLine: (texture, x, y, scaleX, h = 1) ->
+        drawRoadLine: (texture, x, y, scaleX, h = 1) ->  # {{{
             shader = @getShaderProg texture
 
             coords = (x + c * scaleX for c in shader[0])
@@ -212,8 +227,9 @@ jQuery ($) ->
                     @roadCtx.fillRect coords[paint[i][0]], y, widths[paint[i][1]], h
 
             return
+            # }}}
 
-        drawRoadLine2: (texture, x, x2, y, y2, scaleX, scaleX2, h) ->
+        drawRoadLine2: (texture, x, x2, y, y2, scaleX, scaleX2, h) ->  # {{{
             shader = @getShaderProg texture
 
             coords = []
@@ -240,31 +256,34 @@ jQuery ($) ->
                     @roadCtx.fill()
 
             return
+            # }}}
 
-        drawGround: (texture, y, h) ->
+        drawGround: (texture, y, h) ->  # {{{
             @roadCtx.fillStyle = @colortheme[texture][0]
             @roadCtx.fillRect 0, y, @width, h
             return
+            # }}}
 
-        clearCanvas: ->
-            if @backgroundImage and @backgroundPosition
+        clearCanvas: (x, y) ->  # {{{
+            if @backgroundImage and x and y
                 @groundCtx.drawImage @backgroundImage,
-                    @width - @backgroundPosition[0],
-                    @height - @backgroundPosition[1],
+                    @width - x,
+                    @height - y,
                     @width,
-                    @backgroundPosition[1],
+                    y,
                     0,
                     0,
                     @width,
-                    @backgroundPosition[1]
+                    y
             else
                 @groundCtx.fillStyle = "#60a0c0"
                 @groundCtx.fillRect 0, 0, @width, @height
 
             @roadCtx.clearRect 0, 0, @width, @height
             return
+            # }}}
 
-        race: ->
+        race: ->  # {{{
             return if @pause
 
             @texOffset += @speed
@@ -283,7 +302,9 @@ jQuery ($) ->
 
             @drawRoad()
             return
+            # }}}
 
+        # end of class CoffeeRoadRace }}}
 
     # http://active.tutsplus.com/tutorials/games/create-a-racing-game-without-a-3d-engine/
     #
