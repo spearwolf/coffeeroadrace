@@ -4,4 +4,5 @@
 # Author: Wolfger Schramm <wolfger@spearwolf.de>
 # Created: 10/15/11 17:01:29 CEST
 
+coffee -c RoadModel.coffee
 coffee -c CoffeeRoadRace.coffee
