@@ -90,7 +90,7 @@ jQuery ($) ->
             return renderList
             # }}}
 
-        # end of class RoadModel }}}
+    # end of class RoadModel }}}
 
     class CoffeeRoadRace  # {{{
         constructor: (@containerId) ->  # {{{
@@ -304,7 +304,7 @@ jQuery ($) ->
             return
             # }}}
 
-        # end of class CoffeeRoadRace }}}
+    # end of class CoffeeRoadRace }}}
 
     # http://active.tutsplus.com/tutorials/games/create-a-racing-game-without-a-3d-engine/
     #
