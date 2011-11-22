@@ -25,7 +25,7 @@ class RoadModel
             @zMap[i] *= playerZ
         return
 
-    updateRoad: (xOffset, texOffset) ->  # {{{
+    createRenderList: (xOffset, texOffset) ->
         x = @halfWidth + xOffset
         y = @height - 1
         xMap = []
@@ -81,6 +81,7 @@ class RoadModel
                     ++yNext
                 renderList.push [DRAW_GROUND, scanline[y][0], scanline[y][2], h]
                 if h > 1 && scanline[yNext]
+                    #renderList.push [DRAW_ROAD_LINE, scanline[y][0], scanline[y][1], scanline[y][2], scanline[y][3], h]
                     renderList.push [DRAW_ROAD_LINE2, scanline[y][0], scanline[y][1], scanline[yNext][1], scanline[y][2], scanline[yNext][2], scanline[y][3], scanline[yNext][3], h]
                 else
                     renderList.push [DRAW_ROAD_LINE, scanline[y][0], scanline[y][1], scanline[y][2], scanline[y][3], h]
@@ -92,13 +93,16 @@ class RoadModel
         return renderList
 
 
-roadModel = null
-self.addEventListener "message", (e) ->
-    switch e.data.action
-        when 'init'
-            roadModel = new RoadModel e.data.width, e.data.height
-        when 'updateRoad'
-            self.postMessage
-                action: 'renderList',
-                renderList: roadModel.updateRoad(e.data.xOffset, e.data.texOffset)
+if window?
+    window.RoadModel = RoadModel
+else
+    roadModel = null
+    self.addEventListener "message", (e) ->
+        switch e.data.action
+            when 'init'
+                roadModel = new RoadModel e.data.width, e.data.height
+            when 'createRenderList'
+                self.postMessage
+                    action: 'renderList',
+                    renderList: roadModel.createRenderList(e.data.xOffset, e.data.texOffset)
 

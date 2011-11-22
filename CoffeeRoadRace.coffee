@@ -5,17 +5,7 @@ jQuery ($) ->
             @width = $("##{@containerId}").width()
             @height = $("##{@containerId}").height()
 
-            #@model = new RoadModel(@width, @height)
-            @modelWorker = new Worker "RoadModel.js"
-            @modelWorker.postMessage
-                action: 'init',
-                width: @width,
-                height: @height
-            @renderQeue = []
-            self = this
-            @modelWorker.addEventListener "message", (e) ->
-                if e.data.action == 'renderList'
-                    self.renderQeue.push e.data.renderList
+            @roadModel = new RoadModel(@width, @height)
 
             @createHtml()
 
@@ -73,15 +63,8 @@ jQuery ($) ->
             # }}}
 
         drawRoad: ->  # {{{
-            @modelWorker.postMessage
-                action: 'updateRoad',
-                xOffset: @xOffset,
-                texOffset: @texOffset
-
-            #renderList = @model.updateRoad(@xOffset, @texOffset)
-            renderList = @renderQeue.shift()
-
-            if renderList
+            renderList = @roadModel.createRenderList(@xOffset, @texOffset)
+            if renderList?
                 for args in renderList
                     cmd = args.shift()
                     switch cmd
@@ -254,7 +237,13 @@ jQuery ($) ->
         if event.keyCode == 68  # 'd' -> right
             racer.xOffset += 5
 
-    reqAnimFrame = window.mozRequestAnimationFrame or window.webkitRequestAnimationFrame
+    reqAnimFrame = window.requestAnimationFrame or
+                    window.mozRequestAnimationFrame or
+                    window.webkitRequestAnimationFrame or
+                    window.oRequestAnimationFrame or
+                    window.msRequestAnimationFrame or
+                    (f) -> setTimeout(f, 1000.0/60.0)
+
     anim = ->
         racer.race()
         #stats.update()
