@@ -10,12 +10,18 @@ jQuery ($) ->
             @createHtml()
 
             @speed = 5
-            @texOffset = 100
-            @segmentY = 0
+            @pause = false
+
+            @texOffset = 0
             @xOffset = 0.0
 
-            @nextStretch = "straight"
-            @pause = false
+            @segmentY = 0
+            @currentSegmentType = 'straight'
+            @nextSegmentType = null
+            @segmentLength = 500
+
+            @ddx = 0.005
+            @curve = 16
 
             # Road Colors & Theme
             @colortheme =
@@ -63,7 +69,7 @@ jQuery ($) ->
             # }}}
 
         drawRoad: ->  # {{{
-            renderList = @roadModel.createRenderList(@xOffset, @texOffset)
+            renderList = @roadModel.createRenderList(@xOffset, @texOffset, ddx: @ddx, curve: @curve)  #@currentSegmentType)
             if renderList?
                 for args in renderList
                     cmd = args.shift()
@@ -192,26 +198,27 @@ jQuery ($) ->
             return
             # }}}
 
-        race: ->  # {{{
+        crop: (value, add, limit, func) ->
+            value += add
+            if value >= limit
+                value -= limit
+                func(value) if func?
+            else if value < 0
+                value += limit
+                func(value) if func?
+            value
+
+        race: ->
             return if @pause
 
-            @texOffset += @speed
-            if @texOffset >= 100
-                @texOffset -= 100
-            if @texOffset < 0
-                @texOffset += 100
-
-            @segmentY -= 1
-            if @segmentY < 0
-                @segmentY += @roadLines
-                if @nextStretch == 'straight'
-                    @nextStretch = "curved"
-                else
-                    @nextStretch = 'straight'
+            @texOffset = @crop @texOffset, @speed, 100
+            self = this
+            @segmentY = @crop @segmentY, @speed, @segmentLength, ->
+                self.currentSegmentType = if self.nextSegmentType? then self.nextSegmentType else 'straight'
+                #console.log "next segment type:", self.currentSegmentType
 
             @drawRoad()
             return
-            # }}}
 
     # end of class CoffeeRoadRace }}}
 
@@ -232,10 +239,26 @@ jQuery ($) ->
             racer.speed += 0.1
         if event.keyCode == 83  # 's' -> less speed
             racer.speed -= 0.1
+        #if event.keyCode == 65  # 'a' -> left
+            #racer.xOffset -= 5
+        #if event.keyCode == 68  # 'd' -> right
+            #racer.xOffset += 5
+
+    userInput =
+        left: false,
+        right: false
+
+    $(window).keydown (event) ->
         if event.keyCode == 65  # 'a' -> left
-            racer.xOffset -= 5
+            userInput.left = true
         if event.keyCode == 68  # 'd' -> right
-            racer.xOffset += 5
+            userInput.right = true
+
+    $(window).keyup (event) ->
+        if event.keyCode == 65  # 'a' -> left
+            userInput.left = false
+        if event.keyCode == 68  # 'd' -> right
+            userInput.right = false
 
     reqAnimFrame = window.requestAnimationFrame or
                     window.mozRequestAnimationFrame or
@@ -245,6 +268,9 @@ jQuery ($) ->
                     (f) -> setTimeout(f, 1000.0/60.0)
 
     anim = ->
+        racer.xOffset -= 5 if userInput.left
+        racer.xOffset += 5 if userInput.right
+
         racer.race()
         #stats.update()
         reqAnimFrame anim

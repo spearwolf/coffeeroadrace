@@ -12,11 +12,12 @@ class RoadModel
             if e.data.action is 'renderList'
                 self.renderQueue.push e.data.renderList
 
-    createRenderList: (xOffset, texOffset) ->
+    createRenderList: (xOffset, texOffset, segment) ->
         @worker.postMessage
             action: 'createRenderList',
             xOffset: xOffset,
-            texOffset: texOffset
+            texOffset: texOffset,
+            segment: segment
         @renderQueue.shift()
 
 

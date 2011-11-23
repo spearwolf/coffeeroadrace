@@ -14,8 +14,7 @@ class RoadModel
         @zFactor3 = 2.0
         @noScaleLine = 8
         @populateZMap()
-        @ddx = 0.015 * @distanceStep
-        @ddy = 0.01 * @distanceStep
+        @createScaleMap()
 
     populateZMap: ->
         # Populate the zMap with the depth of the road lines
@@ -25,16 +24,21 @@ class RoadModel
             @zMap[i] *= playerZ
         return
 
-    createRenderList: (xOffset, texOffset) ->
-        x = @halfWidth + xOffset
+    createScaleMap: ->
+        distance = @height - (@distanceStep * @roadLines)
+        @scaleMap = (for i in [0...@roadLines]
+                        d = distance
+                        distance += @distanceStep
+                        ((d * @zFactor3) / @zFactor) - @zFactor2)
+
+    makeCurvesAndHills: (xOffset, segment) ->
+        x0 = @halfWidth
+        x = 0
         y = @height - 1
         xMap = []
         yMap = []
         dx = dy = 0
         for i in [0...@roadLines]
-            xMap.push x
-            yMap.push y
-
             #switch @nextStretch
                 #when "straight"
                     #if i >= @segmentY
@@ -51,26 +55,41 @@ class RoadModel
                     #else
                         #dx -= @ddx / 64
                         #dy += @ddy
+
+            #if segmentType == 'curved'
+            curve = segment.curve * Math.pow(Math.sin(i/@roadLines*Math.PI/2), 4)
+            dx += curve * segment.ddx
+
             x += dx
             y += dy - 1
 
-        distance = @height - (@distanceStep * @roadLines)
-        j = y = scaleX = 0
+            xMap.push x0 + x + xOffset * ((@roadLines - i) / @roadLines)
+            yMap.push y
+
+        return [xMap, yMap]
+
+    createScanlines: (xMap, yMap, texOffset) ->
+        j = y = 0
         scanline = []
         for i in [0...@roadLines]
             j = @roadLines - 1 - i
             tex = (@zMap[j] + texOffset) % 100 > 50
             y = yMap[j] | 0
-            scaleX = ((distance * @zFactor3) / @zFactor) - @zFactor2
-            scanline[y] = [tex, xMap[j], y, scaleX, i]
-            distance += @distanceStep
+            scanline[y] = [tex, xMap[j], y, @scaleMap[i], i]
+        return scanline
+
+    createRenderList: (xOffset, texOffset, segment) ->
+        [xMap, yMap] = @makeCurvesAndHills xOffset, segment
+        scanline = @createScanlines xMap, yMap, texOffset
 
         h = y = yNext = 0
         scanlineCount = scanline.length
         foundBgPos = false
         renderList = []
         while y < scanlineCount
-            if scanline[y]
+            unless scanline[y]
+                ++y
+            else
                 unless foundBgPos
                     renderList.push [CLEAR_CANVAS, scanline[y][1], scanline[y][2]]
                     foundBgPos = true
@@ -86,10 +105,7 @@ class RoadModel
                 else
                     renderList.push [DRAW_ROAD_LINE, scanline[y][0], scanline[y][1], scanline[y][2], scanline[y][3], h]
                 y += h
-            else
-                ++y
 
-        delete scanline
         return renderList
 
 
@@ -104,5 +120,5 @@ else
             when 'createRenderList'
                 self.postMessage
                     action: 'renderList',
-                    renderList: roadModel.createRenderList(e.data.xOffset, e.data.texOffset)
+                    renderList: roadModel.createRenderList(e.data.xOffset, e.data.texOffset, e.data.segment)
 
