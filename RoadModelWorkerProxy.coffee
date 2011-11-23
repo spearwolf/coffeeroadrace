@@ -1,4 +1,4 @@
-class RoadModel
+window.RoadModel = class RoadModel
 
     constructor: (width, height) ->
         @renderQueue = []
@@ -7,10 +7,9 @@ class RoadModel
             action: 'init',
             width: width,
             height: height
-        self = this
-        @worker.addEventListener 'message', (e) ->
+        @worker.addEventListener 'message', (e) =>
             if e.data.action is 'renderList'
-                self.renderQueue.push e.data.renderList
+                @renderQueue.push e.data.renderList
 
     createRenderList: (xOffset, texOffset, segment) ->
         @worker.postMessage
@@ -20,5 +19,3 @@ class RoadModel
             segment: segment
         @renderQueue.shift()
 
-
-window.RoadModel = RoadModel

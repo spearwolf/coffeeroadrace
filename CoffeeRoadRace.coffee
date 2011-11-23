@@ -31,12 +31,13 @@ jQuery ($) ->
             @roadHalfWidth = @roadWidth >> 1
             @sideWidth = 20
 
-            @backgroundImage = null
-            self = this
-            img = new Image()
-            img.src = "cloudy_1280x400.png"
-            $(img).load -> self.backgroundImage = img
+            @loadImage "backgroundImage", "cloudy_1280x400.png"
             # }}}
+
+        loadImage: (property, url) ->
+            img = new Image()
+            img.src = url
+            $(img).load => @[property] = img
 
         createHtml: ->  # {{{
             @groundCanvasId = "groundCanavas"
