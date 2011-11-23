@@ -6,39 +6,38 @@ class RoadModel
     DRAW_ROAD_LINE2 = 3
 
     constructor: (@width, @height) ->
-        @roadLines = (0.5 + @height / 2)|0
+        @roadLineCount = (0.5 + @height / 2)|0
         @halfWidth = @width/2
-        @distanceStep = (@height * 0.5) / @roadLines
+        @distanceStep = (@height * 0.5) / @roadLineCount
         @zFactor = @height >> 1
         @zFactor2 = 1.95
         @zFactor3 = 2.0
         @noScaleLine = 8
         @populateZMap()
         @createScaleMap()
+        @curveMap = (Math.pow(Math.sin(i/@roadLineCount*Math.PI/2), 4) for i in [0...@roadLineCount])
 
     populateZMap: ->
-        # Populate the zMap with the depth of the road lines
-        @zMap = (1.0 / ((i * @distanceStep) - (@height / 1.85)) for i in [0...@roadLines])
-        playerZ = 100.0 / @zMap[@noScaleLine]
-        for i in [0...@roadLines]
-            @zMap[i] *= playerZ
+        @depthMap = (1.0 / ((i * @distanceStep) - (@height / 1.85)) for i in [0...@roadLineCount])
+        playerZ = 100.0 / @depthMap[@noScaleLine]
+        for i in [0...@roadLineCount]
+            @depthMap[i] *= playerZ
         return
 
     createScaleMap: ->
-        distance = @height - (@distanceStep * @roadLines)
-        @scaleMap = (for i in [0...@roadLines]
+        distance = @height - (@distanceStep * @roadLineCount)
+        @scaleMap = (for i in [0...@roadLineCount]
                         d = distance
                         distance += @distanceStep
                         ((d * @zFactor3) / @zFactor) - @zFactor2)
 
     makeCurvesAndHills: (xOffset, segment) ->
-        x0 = @halfWidth
         x = 0
         y = @height - 1
         xMap = []
         yMap = []
         dx = dy = 0
-        for i in [0...@roadLines]
+        for i in [0...@roadLineCount]
             #switch @nextStretch
                 #when "straight"
                     #if i >= @segmentY
@@ -57,13 +56,14 @@ class RoadModel
                         #dy += @ddy
 
             #if segmentType == 'curved'
-            curve = segment.curve * Math.pow(Math.sin(i/@roadLines*Math.PI/2), 4)
-            dx += curve * segment.ddx
+            #curve = segment.curve * Math.pow(Math.sin(i/@roadLineCount*Math.PI/2), 4)
+            #curve = 
+            dx += segment.curve * @curveMap[i] * segment.ddx
 
             x += dx
             y += dy - 1
 
-            xMap.push x0 + x + xOffset * ((@roadLines - i) / @roadLines)
+            xMap.push @halfWidth + x + xOffset * ((@roadLineCount - i) / @roadLineCount)
             yMap.push y
 
         return [xMap, yMap]
@@ -71,9 +71,9 @@ class RoadModel
     createScanlines: (xMap, yMap, texOffset) ->
         j = y = 0
         scanline = []
-        for i in [0...@roadLines]
-            j = @roadLines - 1 - i
-            tex = (@zMap[j] + texOffset) % 100 > 50
+        for i in [0...@roadLineCount]
+            j = @roadLineCount - 1 - i
+            tex = (@depthMap[j] + texOffset) % 100 > 50
             y = yMap[j] | 0
             scanline[y] = [tex, xMap[j], y, @scaleMap[i], i]
         return scanline
